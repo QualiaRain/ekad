@@ -540,7 +540,9 @@ fn update_title(title: &str, key: &KeyboardEvent) -> Option<String> {
         Key::Character(text) => Some(title.to_string() + text.as_str()),
         Key::Named(NamedKey::Enter) => Some(title.to_string() + "\n"),
         Key::Named(NamedKey::Backspace) if !title.is_empty() => {
-            Some(title[0..title.len() - 1].to_string())
+            let mut title = title.to_owned();
+            title.pop();
+            Some(title)
         }
         _ => None,
     }
@@ -589,4 +591,18 @@ impl<AppState: 'static, Action: 'static> View<AppState, Action, ViewCtx> for Gra
 
 pub fn graph_viewer(graph: Arc<Mutex<DatabaseGraph>>) -> GraphViewer {
     GraphViewer { graph }
+}
+
+#[cfg(test)]
+mod regression_tests {
+    use super::*;
+
+    #[test]
+    fn backspace_handles_multibyte_characters() {
+        let key = KeyboardEvent::key_down(NamedKey::Backspace, Code::Backspace);
+        for (input, expected) in [("abc", "ab"), ("café", "caf"), ("a🦀", "a"), ("日本", "日")] {
+            assert_eq!(update_title(input, &key), Some(expected.to_owned()));
+        }
+        assert_eq!(update_title("", &key), None);
+    }
 }
